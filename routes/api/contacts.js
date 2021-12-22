@@ -1,93 +1,72 @@
 const express = require('express');
+const createError = require('http-errors');
 const router = express.Router();
-const uniqid = require('uniqid');
+const Joi = require('joi');
+const {
+  listContacts,
+  getContactById,
+  removeContact,
+  addContact,
+  updateContact,
+} = require('../../model/index');
 //==========================================//
-const path = require('path');
+
 const fs = require('fs').promises;
 const cors = require('cors');
 router.use(cors());
 
-const contactsPath = path.join(__dirname, '../../dp/contacts.json');
-const getData = async () => JSON.parse(await fs.readFile(contactsPath, 'utf-8'));
+async function validatorError(req, res, next) {
+  console.log('ok');
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(30).required(),
 
-function getContactById(contactId) {
-  const idName = contactId.toString();
-  return fs
-    .readFile(contactsPath)
-    .then(data => {
-      const contactById = JSON.parse(data).find(contact => contact.id === idName);
-      console.table(contactById);
-      return contactById;
-    })
-    .catch(err => console.log(err.message));
+    phone: [Joi.string(), Joi.number()],
+
+    email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com', 'net'] } }),
+  });
+
+  const { error } = schema.validate(req.body);
+  console.log(error);
+  if (!error) next();
+  else next(error);
 }
 
-// const setData = async data => fs.writeFile(contactsPath, JSON.stringify(data));
-
-//============================================//
 router.get('/', async (req, res, next) => {
-  const data = JSON.parse(await fs.readFile(contactsPath, 'utf-8'));
-  res.json(data);
-  console.log(data);
+  const data = res.json(await listContacts(req.body));
+  // const data = JSON.parse(await fs.readFile(contactsPath, 'utf-8'));
+  return res.json(data);
 });
 
 router.get('/:contactId', async (req, res, next) => {
   try {
-    res.json(await getContactById(req.params.contactId));
+    return res.json(await getContactById(req.params.contactId));
   } catch (err) {
     next(createError(err));
   }
 });
-async function addContact({ name, email, phone }) {
-  const data = await fs.readFile(contactsPath, 'utf-8');
-  const contactList = JSON.parse(data);
-  const newContact = { id: uniqid(), name, email, phone };
-  contactList.push(newContact);
-  await fs.writeFile(contactsPath, JSON.stringify(contactList));
-  return newContact;
-}
-const setContact = async data => fs.writeFile(contactsPath, JSON.stringify(data));
-router.post('/', async (req, res, next) => {
+
+router.post('/', validatorError, async (req, res, next) => {
   try {
-    res.json(await addContact(req.body));
+    return res.json(await addContact(req.body));
   } catch (err) {
-    next(createError(err));
+    next(err.message);
   }
 });
-function removeContact(contactId) {
-  const idName = contactId.toString();
-  return fs
-    .readFile(contactsPath)
-    .then(data => {
-      const contactById = JSON.parse(data).filter(contact => contact.id !== idName);
-      return contactById;
-    })
-    .catch(err => err.message);
-}
 
 router.delete('/:contactId', async (req, res, next) => {
   try {
-    res.json(await removeContact(req.params.contactId));
+    const result = await removeContact(req.params.contactId);
+    if (!result) throw err;
+    res.status(200).json({ message: 'contact deleted' });
   } catch (err) {
-    next(createError(err));
+    return res.status(404).json({ massage: 'Not found' });
   }
 });
-
-async function updateContact({ contactId, body }) {
-  const data = await getData();
-  const postIndex = data.findIndex(item => contactId === item.id);
-  console.log(postIndex);
-  const newContact = { ...data[postIndex], ...body, id: data[postIndex].id };
-  data.splice(postIndex, 1, newContact);
-  await setContact(data);
-  // await fs.writeFile(contactsPath, JSON.stringify(newContact));
-  return newContact;
-}
-router.patch('/:contactId', async (req, res, next) => {
+router.patch('/:contactId', validatorError, async (req, res, next) => {
   try {
-    res.json(await updateContact({ contactId: req.params.contactId, body: req.body }));
+    return res.json(await updateContact({ contactId: req.params.contactId, body: req.body }));
   } catch (err) {
-    next(err);
+    next(err.message);
   }
 });
 
