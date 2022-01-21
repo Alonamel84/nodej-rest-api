@@ -8,9 +8,11 @@ const app = express();
 app.use(express.json());
 // cors
 app.use(cors());
-const routerApi = require('./routes/api/contacts');
-app.use('/api/contacts', routerApi);
-
+require('./config/config-passport');
+const routerApiContacts = require('./routes/api/contacts');
+const routerApiUser = require('./routes/api/users');
+app.use('/api/contacts', routerApiContacts);
+app.use('/api/users', routerApiUser);
 app.use((_, res, __) => {
   res.status(404).json({
     status: 'error',
