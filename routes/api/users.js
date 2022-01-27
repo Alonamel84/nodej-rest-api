@@ -2,10 +2,16 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
+const multer = require('../../multer/multer');
+const path = require('path');
+const gravatar = require('gravatar');
+const Jimp = require('jimp');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs').promises;
 require('dotenv').config();
-const { addContact } = require('../../controllers/contacts');
+const storeImage = path.join(process.cwd(), 'public/avatars/');
 const secret = process.env.SECRET;
-const { getUserById, getUserByEmail, addUser, updateToken } = require('../../model/users');
+const { getUserByEmail, addUser, updateToken } = require('../../model/users');
 
 const auth = (req, res, next) => {
   passport.authenticate('jwt', { session: false }, (err, user) => {
@@ -42,6 +48,7 @@ router.post('/signup', async (req, res, next) => {
       data: {
         email: user.email,
         subscription: user.subscription,
+        avatarURL: gravatar.url(`${user.email}`),
       },
     });
   } catch (error) {
@@ -69,7 +76,6 @@ router.post('/login', async (req, res, next) => {
   const token = jwt.sign(payload, secret, { expiresIn: '1h' });
 
   await updateToken(user.id, token);
-  // await user.updateOne({ _id: user.id }, { token });
 
   res.json({
     status: 'success',
@@ -91,6 +97,27 @@ router.get('/current', auth, async (req, res, next) => {
   return res.json({
     email: req.user.email,
     subscription: req.user.subscription,
+    avatarURL: req.user.avatarURL,
   });
 });
+
+//=================UPLOAD===========================//
+router.patch('/avatars', multer.single('picture'), async (req, res, next) => {
+  console.log(req.file);
+  const { description } = req.body;
+  const { path: temporaryName, originalname } = req.file;
+  const newPathName = path.join(storeImage, `${uuidv4()}_${originalname}`);
+
+  Jimp.read(temporaryName, async (err, storeImage) => {
+    if (err) throw err;
+    storeImage
+      .resize(250, 250) // resize
+      .quality(60) // set JPEG quality
+      .write(newPathName); // save
+    await fs.unlink(temporaryName);
+  });
+
+  res.json({ description, message: 'Файл успешно загружен', status: 200 });
+});
+
 module.exports = router;

@@ -1,5 +1,5 @@
 const Users = require('./schema');
-
+const gravatar = require('gravatar');
 const getUser = async () => Users.find();
 const getUserById = async id => Users.findById(id);
 const getUserByEmail = async email => Users.findOne({ email });
@@ -7,6 +7,7 @@ const addUser = async ({ username, email, password }) => {
   const newUser = new Users({ username, email });
 
   newUser.setPassword(password);
+  await newUser.updateOne({ avatarURL: gravatar.url(email) });
   await newUser.save();
   return newUser;
 };

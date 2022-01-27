@@ -1,8 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-
 require('dotenv').config();
+const createError = require('http-errors');
+const multer = require('./multer/multer');
+const path = require('path');
+const fs = require('fs').promises;
 
 const app = express();
 app.use(express.json());
@@ -11,16 +14,36 @@ app.use(cors());
 require('./config/config-passport');
 const routerApiContacts = require('./routes/api/contacts');
 const routerApiUser = require('./routes/api/users');
+app.use(express.static('public'));
+
+//=================UPLOAD===========================//
+// app.post('/api/upload', multer.single('picture'), async (req, res, next) => {
+//   const { description } = req.body;
+//   const { path: temporaryName, originalname } = req.file;
+//   const newPathName = path.join(storeImage, 'public');
+//   const fileName = path.join(newPathName, originalname);
+
+//   try {
+//     await fs.rename(temporaryName, fileName);
+//   } catch (err) {
+//     await fs.unlink(temporaryName);
+//     return next(err);
+//   }
+//   res.json({ description, message: 'Файл успешно загружен', status: 200 });
+// });
+
+//===========================================//
+
 app.use('/api/contacts', routerApiContacts);
 app.use('/api/users', routerApiUser);
-app.use((_, res, __) => {
-  res.status(404).json({
-    status: 'error',
-    code: 404,
-    message: 'Use api on routes: /api/tasks',
-    data: 'Not found',
-  });
-});
+// app.use((_, res, __) => {
+//   res.status(404).json({
+//     status: 'error',
+//     code: 404,
+//     message: 'Use api on routes: /api/tasks',
+//     data: 'Not found',
+//   });
+// });
 
 app.use((err, _, res, __) => {
   console.log(err.stack);
